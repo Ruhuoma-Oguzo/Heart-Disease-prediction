@@ -1,0 +1,102 @@
+import numpy as np
+import pandas as pd
+import seaborn as sns
+import matplotlib.pyplot as plt
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import LabelEncoder, StandardScaler
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
+import joblib
+
+test_dataset = pd.read_csv('C:/Users/HP/Documents/Test Dataset.csv')
+train_data = pd.read_csv('C:/Users/HP/Documents/Train Dataset .csv')
+
+train_data.head()
+train_data.describe()
+train_data.info()
+
+# Check for missing values
+print("Missing values in train data:\n", train_data.isnull().sum())
+print("Missing values in test data:\n", test_dataset.isnull().sum())
+
+# Handle missing values (if any)
+train_data.fillna(train_data.mean(), inplace=True)
+test_dataset.fillna(test_dataset.mean(), inplace=True)
+
+# Rename the proper case columns to lowercase
+train_data.rename(columns={'Sex': 'sex'}, inplace=True)
+train_data.rename(columns={'Id': 'id'}, inplace=True)
+train_data.rename(columns={'Age': 'age'}, inplace=True)
+
+# Save the modified DataFrame back to a CSV file
+train_data.to_csv('your_file_lowercase.csv', index=False)
+
+# Visualizing the target variable distribution
+sns.countplot(x='target', data=train_data)
+plt.title("Distribution of Heart Disease (Target)")
+plt.show()
+
+# Correlation heatmap
+plt.figure(figsize=(12, 8))
+sns.heatmap(train_data.corr(), annot=True, fmt=".2f")
+plt.title("Correlation Heatmap")
+plt.show()
+
+# Encoding 'sex', 'cp', 'restecg', 'slope', 'thal' if they are categorical
+label_encoder = LabelEncoder()
+categorical_columns = ['sex', 'cp', 'restecg', 'slope']
+for col in categorical_columns:
+    train_data[col] = label_encoder.fit_transform(train_data[col])
+    test_dataset[col] = label_encoder.transform(test_dataset[col])
+
+# Split the training data into features and target variable
+X = train_data.drop('target', axis=1)
+Y = train_data['target']
+
+# Split data: 80% train, 20% validation
+X_train, X_val, y_train, y_val = train_test_split(X, Y, test_size=0.2, random_state=42)
+
+# Feature scaling (optional but recommended for some models
+scaler = StandardScaler()
+X_train = scaler.fit_transform(X_train)
+X_val = scaler.transform(X_val)
+test_data_scaled = scaler.transform(test_dataset)  # Scale the test data as well
+
+# We'll use RandomForestClassifier as an example
+model = RandomForestClassifier(n_estimators=100, random_state=42)
+
+# Train the model
+model.fit(X_train, y_train)
+
+# Use trained model to predict on validation and test datasets
+val_predictions = model.predict(X_val)
+test_predictions = model.predict(test_data_scaled)
+
+# Evaluate the model performance on the validation set
+print("Validation Accuracy:", accuracy_score(y_val, val_predictions))
+print("Classification Report:\n", classification_report(y_val, val_predictions))
+
+# Save the trained model
+joblib.dump(model, 'heart_disease_model.pkl')
+
+print("Model training and prediction completed.")
+
+# Ensure 'id' exists in test data
+if 'id' not in test_dataset.columns:
+    test_dataset['id'] = test_dataset.index  # Create an 'id' if not available
+
+# Use trained model to predict on test dataset
+test_predictions = model.predict(test_data_scaled)
+
+# Save submission file with predictions in the exact same order as 'id' column in test_data
+submission = pd.DataFrame({
+    'id': test_dataset['id'],  # Use the 'id' column in the original order from test_data
+    'target': test_predictions
+})
+
+# Save the submission file without any sorting
+submission.to_csv('submission3.csv', index=False)
+
+print("Submission file created with 'id' in the original order as in the test dataset.")
+
+submission
